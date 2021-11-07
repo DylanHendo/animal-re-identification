@@ -1,0 +1,14 @@
+bin/
+train/
+*.npy
+_Store
+.DS_Store
+._.DS_Store
+.bash_history
+.cache/
+.keras/
+.local/
+.nv/
+.python_history
+.ssh/
+.viminfo
