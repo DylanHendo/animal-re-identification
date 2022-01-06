@@ -5,9 +5,9 @@
 #PBS -l ngpus=1
 #PBS -l ncpus=12
 #PBS -l mem=20GB
-#PBS -l walltime=01:30:00
-#PBS -o /home/n10325701/output/stdout.out
-#PBS -e /home/n10325701/output/stderr.out
+#PBS -l walltime=01:00:00
+#PBS -o /home/n10325701/output/stdout_binary.out
+#PBS -e /home/n10325701/output/stderr_binary.out
 
 ###############################################
 #

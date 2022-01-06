@@ -1,60 +1,40 @@
 import random
 import numpy as np
-import pickle
-import cv2
-import os
 import math
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras import backend as K
 import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_curve,roc_auc_score
 
-IMG_SIZE = 250 
-DATA = "whale"
+IMG_SIZE = 224
+DATA = "tiger"
 
 print("Loading in .npy data...")
 
 if DATA == "tiger":
-    # load tiger data
-    X = np.load('../data/X_tiger.npy')
-    y = np.load('../data/y_tiger.npy')
+    X = np.load('/home/n10325701/data/X_tiger_c.npy')
+    y = np.load('/home/n10325701/data/y_tiger_c.npy')
     y = [int(i) for i in y]
     y = np.asarray(y)
-    
-    num_epochs=75
+
 elif DATA == "chimp":
-    # load chimp data
-    X_t = np.load('../data/X_tai.npy')
-    y_t = np.load('../data/y_tai.npy')
-    X_t = X_t.reshape(X_t.shape[0], IMG_SIZE, IMG_SIZE, 1)
-
-    X_z = np.load('../data/X_zoo.npy')
-    y_z = np.load('../data/y_zoo.npy')
-
-    X = np.concatenate((X_t, X_z))
-    y = np.concatenate((y_t, y_z))
-
+    X = np.load('/home/n10325701/data/X_chimp_c.npy')
+    y = np.load('/home/n10325701/data/y_chimp_c.npy')
+    X = X.reshape(X.shape[0], IMG_SIZE, IMG_SIZE, 3)
     X = np.asarray(X).astype('float32')
-    X = X.reshape(X.shape[0], IMG_SIZE, IMG_SIZE, 1)
-    
-    num_epochs=50
 else:
     # load whale data
-    num_epochs=20
     X = np.load('/home/n10325701/data/X_whale.npy')
     y = np.load('/home/n10325701/data/y_whale.npy')
     X = np.asarray(X).astype('float32')
-    X = X.reshape(X.shape[0], IMG_SIZE, IMG_SIZE, 1)
+    X = X.reshape(X.shape[0], IMG_SIZE, IMG_SIZE, 3)
 
+# normalize image data
+X = X / 255.0
 
-print(DATA + " data loaded successfully!\n")
-
-
-# set
 d = dict([(b,a+1) for a,b in enumerate(sorted(set(y)))])
 mapped = [d[x] for x in y]
 y = np.asarray(mapped)
@@ -68,13 +48,13 @@ x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=1-train_rati
 x_val, x_test, y_val, y_test = train_test_split(x_test, y_test, test_size=test_ratio/(test_ratio + validation_ratio))
 
 
-datagen = tf.keras.preprocessing.image.ImageDataGenerator(
+datagen = keras.preprocessing.image.ImageDataGenerator(
+    rotation_range=10,          # randomly rotate images by 10 degrees
     zoom_range=0.2,             # randomly zoom images by 20%
     horizontal_flip=True,       # randomly flip along horizontal flip
+    rescale=1./255,             # scale imgs ?
 )
 
-
-# triplet generator
 def GetTripletData(imgs, labels, batch_size):
     """
     Get a triplet, where 1 item is the anchor, theres is 1 positive match and 1 negative match
@@ -111,76 +91,22 @@ def GetTripletData(imgs, labels, batch_size):
 
 
 def TripleGenerator(imgs, labels, batch_size):
-    # todo: augment only positive sample?
     while True:
         [image_a, image_b, image_c] = GetTripletData(imgs, labels, batch_size)
 
-        # pass image through generator with labels
+        # # pass image through generator with labels
         genX1 = datagen.flow(image_a, batch_size=batch_size, seed=42)
         genX2 = datagen.flow(image_b, batch_size=batch_size, seed=42)
         genX3 = datagen.flow(image_c, batch_size=batch_size, seed=42)
 
-        # get next batch, with augmentation
+        # # get next batch, with augmentation
         X1i = genX1.next()
         X2i = genX2.next()
         X3i = genX3.next()
 
         # yield [image_a, image_b, image_c], None
-        yield [X1i, X2i, X3i], None    
+        yield [X1i, X2i, X3i], None
 
-
-# ============================================================================================
-#                                    The Network
-# ============================================================================================
-
-def conv_block(inputs, filters, spatial_dropout=0.0, max_pool=True):
-    x = layers.Conv2D(filters=filters, kernel_size=(3,3), padding='same', activation='relu')(inputs)
-    x = layers.Conv2D(filters=filters, kernel_size=(3,3), padding='same', activation=None)(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation('relu')(x)
-    if (spatial_dropout > 0.0):
-        x = layers.SpatialDropout2D(spatial_dropout)(x)
-    if (max_pool == True):
-        x = layers.MaxPool2D(pool_size=(2, 2))(x)
-    
-    return x
-
-def fc_block(inputs, size, dropout):
-    x = layers.Dense(size, activation=None)(inputs)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation('relu')(x)
-    if (dropout > 0.0):
-        x = layers.Dropout(dropout)(x)
-    return x
-
-def vgg_net(inputs, filters, fc, spatial_dropout = 0.0, dropout = 0.0):
-    x = inputs
-    for idx,i in enumerate(filters):
-        x = conv_block(x, i, spatial_dropout, not (idx==len(filters) - 1))
-    
-    x = layers.Flatten()(x)
-    for i in fc:
-        x = fc_block(x, i, dropout)
-        
-    return x
-
-
-# Create the common branch here, as per last time:
-#   Create an input
-#   Create the network with our desired parameters
-#   Add an embedding layer
-#   Turn that into a model
-embedding_size = 32
-dummy_input = keras.Input((IMG_SIZE, IMG_SIZE, 1))
-base_network = vgg_net(dummy_input, [8, 16, 32], [256], 0.2, 0)
-embedding_layer = layers.Dense(embedding_size, activation=None)(base_network)
-base_network = keras.Model(dummy_input, embedding_layer, name='SiameseBranch')
-
-
-# triplet loss layer implementation, retrieved from:
-#   https://medium.com/@crimy/one-shot-learning-siamese-networks-and-triplet-loss-with-keras-2885ed022352 
-# Why use a layer for our loss and not just a function? 
-# Easier to wrangle the three inputs (anchor, positive and negative) in a layer
 
 class TripletLossLayer(layers.Layer):
     def __init__(self, alpha, **kwargs):
@@ -204,41 +130,52 @@ class TripletLossLayer(layers.Layer):
         return loss
 
 
-# triplet anchors
-input_anchor = keras.Input((IMG_SIZE, IMG_SIZE, 1), name='Anchor')
-input_positive = keras.Input((IMG_SIZE, IMG_SIZE, 1), name='Positive')
-input_negative = keras.Input((IMG_SIZE, IMG_SIZE, 1), name='Negative')
+def return_inception_model():
+    input_vector = tf.keras.Input((IMG_SIZE,IMG_SIZE,3))
+    subnet = tf.keras.applications.MobileNetV2(
+        include_top=False,
+        weights="imagenet",
+        input_tensor=input_vector,
+        input_shape=(IMG_SIZE,IMG_SIZE,3)
+    )
 
-embedding_anchor = base_network(input_anchor)
-embedding_positive = base_network(input_positive)
-embedding_negative = base_network(input_negative)
+    out = subnet.output
+    out = layers.Flatten()(out)
+    model = keras.Model(subnet.input, out, name="SubConvNet")
+    return model
 
-margin = 1
-loss_layer = TripletLossLayer(alpha=margin, name='triplet_loss_layer')([embedding_anchor, embedding_positive, embedding_negative])
+base_model = return_inception_model()
 
-# Our loss is in the layer, and we have no actual layers. 
-# As inputs are triplets and we seek to minimise the dist between the triplets, we don't need a label.
-triplet_network = keras.Model(inputs=[input_anchor, input_positive, input_negative], outputs=loss_layer)
-triplet_network.compile(optimizer=keras.optimizers.RMSprop())
+anchor_input = tf.keras.Input((IMG_SIZE,IMG_SIZE,3))
+positive_input = tf.keras.Input((IMG_SIZE,IMG_SIZE,3))
+negative_input = tf.keras.Input((IMG_SIZE,IMG_SIZE,3))
 
+embedding_anchor = base_model(anchor_input)
+embedding_positive = base_model(positive_input)
+embedding_negative = base_model(negative_input)
 
-# train
+loss_layer = TripletLossLayer(alpha=1, name='triplet_loss_layer')([embedding_anchor, embedding_positive, embedding_negative])
+triplet_network = keras.Model(inputs=[anchor_input, positive_input, negative_input], outputs=loss_layer)
+triplet_network.compile(optimizer=keras.optimizers.Adam(learning_rate=0.00001))
+
 batch_size = 64
-validation_size = len(x_val)
+validation_size = len(x_val)  
+num_epochs = 30
 training_gen = TripleGenerator(x_train, y_train, batch_size)
-triplet_test_x = GetTripletData(x_val, y_val, validation_size)
+x_validation = GetTripletData(x_val, y_val, validation_size)
 
 triplet_network.fit(
-    training_gen, 
+    training_gen,
     steps_per_epoch = len(x_train) // batch_size, 
+    batch_size=batch_size, 
     epochs=num_epochs, 
     shuffle=True, 
-    validation_data=(triplet_test_x, None),
+    validation_data=(x_validation, None), 
 )
 
 
 
-# ========================================== UAC/ROC =================================================
+# ==================================== AUC ==========================================
 
 
 def compute_dist(a,b):
@@ -275,8 +212,7 @@ def compute_probs(network,X,Y):
             else:
                 y[k] = 0
             k += 1
-    return probs,y
-
+    return probs, y
 
 def compute_metrics(probs, yprobs):
     '''
@@ -297,28 +233,31 @@ def find_nearest(array, value):
         return array[idx-1],idx-1
     else:
         return array[idx],idx
-
+    
 def draw_roc(fpr, tpr, thresholds):
     #find threshold
     targetfpr=1e-3
     _, idx = find_nearest(fpr,targetfpr)
     threshold = thresholds[idx]
     recall = tpr[idx]
-
+    
     # plot no skill
     plt.figure()
-    plt.plot([0, 1], [0, 1], linestyle='--')
+    plt.plot([0, 1], [0, 1], linestyle='--') 
     plt.plot(fpr, tpr, marker='.')
     plt.title('AUC: {0:.3f}\nSensitivity : {2:.1%} @FPR={1:.0e}'.format(auc,targetfpr,recall))
     plt.xlabel('Specificity (FPR)')
     plt.ylabel('Sensitivity (TPR)')
     plt.savefig(f"../results/{DATA}_triplet_AUC.png", bbox_inches='tight')
 
-probs,yprob = compute_probs(base_network, x_test, y_test)
-fpr, tpr, thresholds,auc = compute_metrics(probs, yprob)
+probs, yprob = compute_probs(base_model, x_test, y_test)
+fpr, tpr, thresholds, auc = compute_metrics(probs, yprob)
 draw_roc(fpr, tpr, thresholds)
 
 print(f"AUC: {auc}")
+
+
+# =================================== CMC ==========================================
 
 
 # L2 dist
@@ -326,23 +265,23 @@ def ComputeDistance(a,b):
     return np.sum(np.square(a-b))
 
 def TripletCMC(network, dataset_test, idxcatalog=0, idxcandidate=1, nb_test_class=51):
-
+    
     _,w,h,c = dataset_test.shape
-
+    
     #generates embeddings for gallery set
     gallery_images = np.zeros((nb_test_class,w,h,c))
     for i in range(nb_test_class):
         gallery_images[i,:,:,:] = dataset_test[i][idxcandidate,:,:]
     gallery_embeddings = network.predict(gallery_images)
-
+    
     #generates embeddings for probe set
     probe_images = np.zeros((nb_test_class,w,h,c))
     for i in range(nb_test_class):
         probe_images[i,:,:,:] = dataset_test[i][idxcatalog,:,:]
     probe_embeddings = network.predict(probe_images)
-
+       
     ranks = np.zeros(nb_test_class)
-
+        
     #for each gallery 
     for i in range(nb_test_class):
         predictionsdtype=[('class', int), ('dist', float)]
@@ -350,24 +289,23 @@ def TripletCMC(network, dataset_test, idxcatalog=0, idxcandidate=1, nb_test_clas
 
         # compute distance between the each probe and gallery img
         for ref in range(nb_test_class):
-            predictions[ref] = (ref, ComputeDistance(gallery_embeddings[i,:], probe_embeddings[ref,:]))
+            predictions[ref] = (ref, ComputeDistance(gallery_embeddings[i,:], probe_embeddings[ref,:])) 
 
         # sort predictions, ranked from the smallest distance from the candidate to the biggest
         sorted_predictions = np.sort(predictions, order='dist')
         rankedPredictions = sorted_predictions['class']
-
+        
         if i in rankedPredictions:
             # which rank   
-            firstOccurance = np.argmax(rankedPredictions == i)
+            firstOccurance = np.argmax(rankedPredictions == i)  
             #update ranks 
-            for j in range(firstOccurance, nb_test_class):
+            for j in range(firstOccurance, nb_test_class):            
                 ranks[j] +=1
-
-    cmcScores = ranks / nb_test_class
+    
+    cmcScores = ranks / nb_test_class    
     return cmcScores
 
-
-cmc = TripletCMC(base_network, x_test)
+cmc = TripletCMC(base_model, x_test)
 print(cmc[:5])
 
 fig = plt.figure()

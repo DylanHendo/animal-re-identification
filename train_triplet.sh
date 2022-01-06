@@ -3,7 +3,7 @@
 #PBS -N triplet
 #PBS -l gputype=M40
 #PBS -l ngpus=1
-#PBS -l ncpus=12
+#PBS -l ncpus=4
 #PBS -l mem=20GB
 #PBS -l walltime=01:00:00
 #PBS -o /home/n10325701/output/stdout_triplet.out
