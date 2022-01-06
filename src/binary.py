@@ -15,30 +15,19 @@ print("Loading in .npy data...")
 
 # load in relevant data, depending on dataset used
 if DATA == "tiger":
-    X = np.load('/home/n10325701/data/X_tiger_c.npy')
-    y = np.load('/home/n10325701/data/y_tiger_c.npy')
-    y = [int(i) for i in y]
-    y = np.asarray(y)
-
+    X = np.load('../data/X_tiger.npy')
+    y = np.load('../data/y_tiger.npy')
 elif DATA == "chimp":
-    X = np.load('/home/n10325701/data/X_chimp_c.npy')
-    y = np.load('/home/n10325701/data/y_chimp_c.npy')
-    X = X.reshape(X.shape[0], IMG_SIZE, IMG_SIZE, 3) 
-    X = np.asarray(X).astype('float32')
+    X = np.load('../data/X_chimp.npy')
+    y = np.load('../data/y_chimp.npy')
 else:
-    # load whale data
-    IMG_SIZE=250
     X = np.load('../data/X_whale.npy')
     y = np.load('../data/y_whale.npy')
-    X = np.asarray(X).astype('float32')
-    X = X.reshape(X.shape[0], IMG_SIZE, IMG_SIZE, 3)
-
 
 # normalise img data
+X = X.reshape(X.shape[0], IMG_SIZE, IMG_SIZE, 3) 
+X = np.asarray(X).astype('float32')
 X = X / 255.0
-
-print(DATA + " data loaded successfully!\n")
-
 
 # generate array of incrementing ints, to match each unique class
 d = dict([(b,a+1) for a,b in enumerate(sorted(set(y)))])
