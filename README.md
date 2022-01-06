@@ -3,6 +3,13 @@
 ## Background
 As part of my engineering degree at the Queensland University of Technology, I was required to complete a final year thesis project, on an offered topic of my choosing, working with a supervisor at QUT. The topic I chose was ***Animal Re-Identification for Wildlife Monitoring***, under the supervision of Dr. Simon Denman.
 
+Three seperate networks/loss-functions were compared in this project, on top of the MobileNetV2 base model:
+- binary loss
+- contrastive loss
+- triplet loss
+
+The performance of these networks were analysed and compared, to better understand how CNN's and Deep Learning can be used to perform calssification tasks at a standard higher than humans.
+
 ## Data
 Three seperate datasets were used for this project, to measure the performace of the seperate networks.
 These 3 datasets were the following:
@@ -19,5 +26,7 @@ The networks were trained and tested on QUT's HPC supercomputer, hence the bash 
 
 ## Results
 The results generated are the CMC curve and the AUC/ROC graph. An example of the results are shown here:
+
 ![Preview](results/example-results.png?raw=true "Example")
+
 The images will automatically be saved to the results folder when the script is run.
