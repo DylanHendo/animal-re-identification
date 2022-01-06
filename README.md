@@ -16,3 +16,8 @@ My method was to save the numerical data as .npy files, such that they could be 
 
 ## Training
 The networks were trained and tested on QUT's HPC supercomputer, hence the bash files supplied. On a local machine, the src files can be run simply as python scripts.
+
+## Results
+The results generated are the CMC curve and the AUC/ROC graph. An example of the results are shown here:
+![Preview](results/example-results.png?raw=true "Example")
+The images will automatically be saved to the results folder when the script is run.
